@@ -25,29 +25,33 @@ pip install receipt-kernel
 ## Quick start
 
 ```python
-from receipt_kernel import Verdict, BlobRef, RetentionPolicy
+from receipt_kernel import Verdict
 from receipt_kernel.store_sqlite import SqliteReceiptStore
-from receipt_kernel.stages import DEFAULT_STAGE_GRAPH
-from receipt_kernel.envelope import make_envelope, seal_envelope
+from receipt_kernel.envelope import make_envelope
 
 # Create a store
-store = SqliteReceiptStore(":memory:", stage_graph=DEFAULT_STAGE_GRAPH)
+store = SqliteReceiptStore(":memory:")
+store.initialize_schema()
 
 # Start a run
 run_id = "run-001"
-store.ensure_run(run_id, policy_id="default", policy_version="1.0")
+store.ensure_run(run_id, policy_id="default", policy_version="1.0", stage_graph_id="default")
 
-# Append events through the stage graph
+# Append an event (store fills run_id, seq, prev_hash, event_hash)
 env = make_envelope(
-    run_id=run_id,
     event_type="RUN_START",
     stage="START",
-    actor={"kind": "system", "id": "test"},
-    policy={"policy_id": "default", "policy_version": "1.0", "stage_graph_id": "default"},
+    actor_kind="system",
+    actor_id="test",
+    policy_id="default",
+    policy_version="1.0",
+    stage_graph_id="default",
     payload={"task": "example"},
 )
-sealed = seal_envelope(env, prev_hash=None)
-store.append_event(sealed)
+store.append_event(run_id, env)
+
+events = store.get_events(run_id)
+print(f"Events: {len(events)}, chain intact: {events[0]['event_hash'] is not None}")
 ```
 
 ## Invariants
